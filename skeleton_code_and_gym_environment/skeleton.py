@@ -4,6 +4,7 @@ import requests
 import numpy as np
 import argparse
 import sys
+import math
 from gym_connect_four import ConnectFourEnv
 
 env: ConnectFourEnv = gym.make("ConnectFour-v0")
@@ -11,7 +12,7 @@ env: ConnectFourEnv = gym.make("ConnectFour-v0")
 #SERVER_ADRESS = "http://localhost:8000/"
 SERVER_ADRESS = "https://vilde.cs.lth.se/edap01-4inarow/"
 API_KEY = 'nyckel'
-STIL_ID = ["da20example-s1", "da22test-s2"] # TODO: fill this list with your stil-id's
+STIL_ID = ["da20example-s1"] # TODO: fill this list with your stil-id's
 
 def call_server(move):
    res = requests.post(SERVER_ADRESS + "move",
@@ -66,14 +67,92 @@ def opponents_move(env):
    env.change_player() # change back to student before returning
    return state, reward, done
 
-def student_move():
+def student_move(env):
    """
    TODO: Implement your min-max alpha-beta pruning algorithm here.
    Give it whatever input arguments you think are necessary
    (and change where it is called).
    The function should return a move from 0-6
    """
-   return random.choice([0, 1, 2, 3, 4, 5, 6])
+   env.w
+   choice = random.choice([0, 1, 2, 3, 4, 5, 6]) 
+   return choice
+
+def minmax(env, depth, alpha, beta, max_play):
+   valid_locations = env.available_moves()
+
+   if depth == 0:
+      return None, 0
+
+   if max_play:
+      value = -math.inf
+      choice = random.choice(valid_locations)
+      for col in valid_locations:
+         row = next_free_row(env.board, col)
+         env_copy = env.copy()
+         # läg ut 1 brikan env.step(action)
+         env_copy.step(choice)
+         new_score = minmax(env_copy, depth - 1, alpha, beta, False) # simulerar svaret från minmizing
+         if new_score > value:
+            value = new_score
+            choice = col
+         alpha = max(alpha, value)
+         if alpha >= beta:
+            break
+      return choice, value
+
+   else: # minPlay 
+      value = math.inf
+      choice = random.choice(valid_locations)
+      for col in valid_locations:
+         row = next_free_row(env.board, col)
+         env_copy = env.copy()
+         # läg ut -1 brikan env.step(action)
+         env_copy.step(choice)
+         new_score = minmax(env_copy, depth - 1, alpha, beta, True) # går vidare till drag 2
+         if new_score < value:
+            value = new_score
+            choice = col
+         alpha = max(alpha, value)
+         if alpha >= beta:
+            break
+      return choice, value
+
+def next_free_row(board, col):
+   for row in range(6):
+      if board[row][col] == 0:
+         return row
+
+def evaluate(env, choice):
+   # print("Boardtype: ")
+   # print(type(env.board), "\n") 
+   # print(env.board[:, choice])
+
+   score = 0
+
+   # vertical
+   row = env.board[:, choice]
+   num_zeros = (row == 0).sum()
+   np.delete(row, 0)
+   num_once
+   for x in board:
+      if row[x] == 1:
+         num_once =+ 1
+      else: break
+
+   if num_zeros + num_once > 4:
+      score =+ num_once
+
+   # horizontal
+   for r in range(6):
+      col = env.board[choice, :]
+   
+
+
+   # diagonal
+
+   return score
+      
 
 def play_game(vs_server = False):
    """
@@ -119,7 +198,7 @@ def play_game(vs_server = False):
    done = False
    while not done:
       # Select your move
-      stmove = student_move() # TODO: change input here
+      stmove = student_move(env) # TODO: change input here
 
       # make both student and bot/server moves
       if vs_server:
