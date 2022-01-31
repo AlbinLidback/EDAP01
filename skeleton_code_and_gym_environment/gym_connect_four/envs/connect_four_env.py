@@ -103,6 +103,12 @@ class ConnectFourEnv(gym.Env):
     def change_player(self):
         self.__current_player *= -1
 
+    """
+    Used for debuging
+    """
+    def view_player(self):
+        return self.__current_player
+
     def step(self, action: int) -> Tuple[np.ndarray, float, bool, dict]:
         step_result = self._step(action)
         reward = step_result.get_reward(self.__current_player)
