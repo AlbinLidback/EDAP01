@@ -5,6 +5,7 @@ import numpy as np
 import argparse
 import sys
 import math
+import copy
 from gym_connect_four import ConnectFourEnv
 
 env: ConnectFourEnv = gym.make("ConnectFour-v0")
@@ -74,25 +75,31 @@ def student_move(env):
    (and change where it is called).
    The function should return a move from 0-6
    """
-   env.w
-   choice = random.choice([0, 1, 2, 3, 4, 5, 6]) 
+   
+   # choice = random.choice([0, 1, 2, 3, 4, 5, 6]) 
+   choice = minmax(env, 4, -math.inf, math.inf, True)
    return choice
 
-def minmax(env, depth, alpha, beta, max_play):
-   valid_locations = env.available_moves()
+def minmax(env, depth: int, alpha, beta, max_play):
+   valid_locations = list(env.available_moves())
 
    if depth == 0:
-      return None, 0
+      if np.sum(env.board) > 0:
+         return None, 0
+      else:
+         randChoice = random.choice(valid_locations)
+         print("Return random of: {}\n".format(randChoice))
+         return randChoice, evaluate(env, randChoice)
 
    if max_play:
       value = -math.inf
       choice = random.choice(valid_locations)
       for col in valid_locations:
          row = next_free_row(env.board, col)
-         env_copy = env.copy()
-         # läg ut 1 brikan env.step(action)
+         env_copy = copy.copy(env)
+         print("MaxPlayer {} Choice: {}, Depth: {}, Choices: {}\n".format(env_copy.view_player(), choice, depth, valid_locations))
          env_copy.step(choice)
-         new_score = minmax(env_copy, depth - 1, alpha, beta, False) # simulerar svaret från minmizing
+         choice, new_score = minmax(env_copy, depth - 1, alpha, beta, False)[1]
          if new_score > value:
             value = new_score
             choice = col
@@ -106,14 +113,16 @@ def minmax(env, depth, alpha, beta, max_play):
       choice = random.choice(valid_locations)
       for col in valid_locations:
          row = next_free_row(env.board, col)
-         env_copy = env.copy()
-         # läg ut -1 brikan env.step(action)
+         env_copy = copy.copy(env)
+         env_copy.change_player()
+         print("MinPlayer {} Choice: {}, Depth: {}, Choices: {}\n".format(env_copy.view_player(), choice, depth, valid_locations))
          env_copy.step(choice)
-         new_score = minmax(env_copy, depth - 1, alpha, beta, True) # går vidare till drag 2
+         env_copy.change_player()
+         choice, new_score = minmax(env_copy, depth - 1, alpha, beta, True)[1]
          if new_score < value:
             value = new_score
             choice = col
-         alpha = max(alpha, value)
+         beta = min(beta, value)
          if alpha >= beta:
             break
       return choice, value
@@ -131,23 +140,8 @@ def evaluate(env, choice):
    score = 0
 
    # vertical
-   row = env.board[:, choice]
-   num_zeros = (row == 0).sum()
-   np.delete(row, 0)
-   num_once
-   for x in board:
-      if row[x] == 1:
-         num_once =+ 1
-      else: break
-
-   if num_zeros + num_once > 4:
-      score =+ num_once
 
    # horizontal
-   for r in range(6):
-      col = env.board[choice, :]
-   
-
 
    # diagonal
 
