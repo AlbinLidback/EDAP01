@@ -66,19 +66,13 @@ def opponents_move(env):
    env.change_player() # change back to student before returning
    return state, reward, done
 
-def student_move(state):
+def student_move():
    """
    TODO: Implement your min-max alpha-beta pruning algorithm here.
    Give it whatever input arguments you think are necessary
    (and change where it is called).
    The function should return a move from 0-6
    """
-
-   print("Pres enter to continue.") # for analysing the outprints
-   input()
-
-   print("Printing recived state from ''server''", state)
-
    return random.choice([0, 1, 2, 3, 4, 5, 6])
 
 def play_game(vs_server = False):
@@ -125,7 +119,7 @@ def play_game(vs_server = False):
    done = False
    while not done:
       # Select your move
-      stmove = student_move(state) # TODO: change input here
+      stmove = student_move() # TODO: change input here
 
       # make both student and bot/server moves
       if vs_server:
@@ -142,7 +136,7 @@ def play_game(vs_server = False):
             # Execute your move
             avmoves = env.available_moves()
             if stmove not in avmoves:
-               print("You tied to make an illegal move! Games ends.")
+               print("You tied to make an illegal move! You have lost the game.")
                break
             state, result, done, _ = env.step(stmove)
 
