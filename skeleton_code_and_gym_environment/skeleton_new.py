@@ -68,7 +68,7 @@ def opponents_move(env):
    env.change_player() # change back to student before returning
    return state, reward, done
 
-def student_move(env_s) -> int:
+def student_move(env) -> int:
    """
    TODO: Implement your min-max alpha-beta pruning algorithm here.
    Give it whatever input arguments you think are necessary
@@ -79,33 +79,27 @@ def student_move(env_s) -> int:
    #choice = random.choice([0, 1, 2, 3, 4, 5, 6])
    #score = None
 
-   choice, score = minmax(env_s, 5, -math.inf, math.inf, True)
+   choice, score = minmax(env.board.tolist(), 3, -math.inf, math.inf, True)
    print("Choice to return: ", choice,". With a score of: ", score, "\n")
    return choice
 
 def minmax(game, depth, alpha, beta, max_play):
-   valid_locations = list(game.available_moves())
+   available_moves = get_available_moves(game)
    
-   if depth == 0 or game.is_win_state() or len(valid_locations) == 0:
-      if game.is_win_state():
-         return None, math.inf # win state
-      if len(valid_locations) == 0:
-         return None, 0 # draw/los
-      else:
-         score = evaluate(game.board, max_play)
-         return None, score # continue
+   if depth == 0:
+      score = evaluate(game, max_play)
+      return None, score
 
    if max_play:
       value = -math.inf
-      column = random.choice(valid_locations)
+      column = available_moves.pop()
       
-      for col in valid_locations:
-         row = next_free_row(game.board, col)
-         if game.view_player() == -1:
-            game.change_player()
-         game_copy = copy.copy(game)
-         game_copy.step(col)
-         new_choice, new_score = minmax(game_copy, depth - 1, alpha, beta, False)
+      for col in available_moves:
+         row = next_free_row(game, col)
+         
+         new_game = add_in_col(game, col, 1)
+
+         new_choice, new_score = minmax(new_game, depth - 1, alpha, beta, False)
          if new_score > value:
             value = new_score
             column = col
@@ -117,15 +111,14 @@ def minmax(game, depth, alpha, beta, max_play):
 
    else: # minPlay 
       value = math.inf
-      column = random.choice(valid_locations)
+      column = random.choice(available_moves)
 
-      for col in valid_locations:
-         row = next_free_row(game.board, col)
-         if game.view_player() == 1:
-            game.change_player()
-         game_copy = copy.copy(game)
-         game_copy.step(col)
-         new_choice, new_score = minmax(game_copy, depth - 1, alpha, beta, True)
+      for col in available_moves:
+         row = next_free_row(game, col)
+         
+         new_game = add_in_col(game, col, -1)
+
+         new_choice, new_score = minmax(new_game, depth - 1, alpha, beta, True)
          if new_score > value:
             value = new_score
             column = col
@@ -135,9 +128,27 @@ def minmax(game, depth, alpha, beta, max_play):
             break
       return column, value
 
+def add_in_col(game, col, player):
+   for row in game[:][col]:
+      if game[row][col] == 0 and game[row + 1][col] == player:
+         game[row][col] = player
+         return game
+   print("-- Fel i add_in_col funktionen! --\n")
+   return None
+
+def get_available_moves(board):
+   #available = {10, 11}
+   #available.clear()
+   #for x in range(7):
+   #   if board[0][x] == 0:
+   #      available.add(x)
+   #return available
+
+   return [0, 1, 2, 3, 4, 5, 6]
+
 def next_free_row(board, col):
    for row in range(6):
-      if board[row, col] == 0:
+      if board[row][col] == 0:
          return row
 
 def eval_window(window, max_play):
