@@ -68,7 +68,7 @@ def opponents_move(env):
    env.change_player() # change back to student before returning
    return state, reward, done
 
-def student_move(env_s) -> int:
+def student_move(board) -> int:
    """
    TODO: Implement your min-max alpha-beta pruning algorithm here.
    Give it whatever input arguments you think are necessary
@@ -79,68 +79,74 @@ def student_move(env_s) -> int:
    #choice = random.choice([0, 1, 2, 3, 4, 5, 6])
    #score = None
 
-   choice, score = minmax(env_s, 5, -math.inf, math.inf, True)
-   print("Choice to return: ", choice,". With a score of: ", score, "\n")
+   choice, score = minmax(board, 1, -math.inf, math.inf, True)
+   print("Move to return: ", choice,". With a score of: ", score, "\n")
    return choice
 
 def minmax(game, depth, alpha, beta, max_play):
-   valid_locations = list(game.available_moves())
+   valid_locations = get_available_moves(game)
    
-   if depth == 0 or game.is_win_state() or len(valid_locations) == 0:
-      if game.is_win_state():
-         return None, math.inf # win state
-      if len(valid_locations) == 0:
-         return None, 0 # draw/los
-      else:
-         score = evaluate(game.board, max_play)
-         return None, score # continue
+   if depth == 0 or len(valid_locations) == 0:
+      score = evaluate(game, max_play)
+      return None, score 
 
    if max_play:
-      value = -math.inf
-      column :int = random.choice(valid_locations)
-      
-      for col in valid_locations:
-         row = next_free_row(game.board, col)
-         if game.view_player() == -1:
-            game.change_player()
-         game_copy = copy.copy(game)
-         game_copy.step(col)
+      old_score = -math.inf
+      column = 3
+      for col in valid_locations:         
+         game_copy = add_disc_in_col(copy.copy(game), col, 1)
          new_choice, new_score = minmax(game_copy, depth - 1, alpha, beta, False)
-         if new_score > value:
-            value = new_score
+         print("MAX forloop depth {}\ncol {}, old_score {}, new_score {}, best column {}".format(depth, col, old_score, new_score, column))
+         if new_score > old_score:
+            old_score = new_score
             column = col
+         print("col {}, old_score {}, new_score {}, best column {}\nMAX after if depth {}".format(col, old_score, new_score, column, depth))
          
-         alpha = max(alpha, value)
-         if alpha >= beta:
-            break
-      return column, value
+         #alpha = max(alpha, old_score)
+         #if alpha <= beta:
+         #   break
+      return column, old_score
 
    else: # minPlay 
-      value = math.inf
-      column :int = random.choice(valid_locations)
-
+      old_score = math.inf
+      column = 3
       for col in valid_locations:
-         row = next_free_row(game.board, col)
-         if game.view_player() == 1:
-            game.change_player()
-         game_copy = copy.copy(game)
-         game_copy.step(col)
+         game_copy = add_disc_in_col(copy.copy(game), col, -1)
          new_choice, new_score = minmax(game_copy, depth - 1, alpha, beta, True)
-         if new_score > value:
-            value = new_score
+         if new_score > old_score:
+            old_score = new_score
             column = col
          
-         beta = min(beta, value)
-         if alpha >= beta:
-            break
-      return column, value
+         #beta = min(beta, old_score)
+         #if alpha <= beta:
+         #   break
+      return column, old_score
+
+def add_disc_in_col(org_game, col, player:int):
+   game = list(org_game[: , col])
+   for x in range(6):
+      if x < 5:
+         if game[x] == 0 and game[x + 1] != 0:
+            game[x] = player
+      else:
+         game[x] = player
+   ret_game = org_game
+   ret_game[:, col] = np.array(game)
+   return ret_game
+
+def get_available_moves(game) -> int:
+   available = []
+   for col in range(7):
+      if game[0, col] == 0:
+         available.append(col)
+   return available
 
 def next_free_row(board, col):
    for row in range(6):
-      if board[row, col] == 0:
+      if board[5 - row, col] == 0:
          return row
 
-def eval_window(window, max_play):
+def eval_sliding_window(window, max_play):
    score = 0
    player = 1 if max_play else -1
    op_player = player * -1
@@ -161,42 +167,48 @@ def eval_window(window, max_play):
       score -= 4
    elif op_player_pices == 2:
       score -= 2
-   elif op_player_pices == 1:
-      score -= 1
 
    return score
 
 def evaluate(board, max_play):
-   player = 1 if max_play else -1
+   player = 0
+   if max_play:
+      player = 1 
+   else:
+      player = -1
 
    score = 0
 
 	## Center   
-   center_count = np.count_nonzero(board[:, 3] == player)
+   #print(board, "\n--Array",board[:, 3], player)
+   center_count = np.count_nonzero(board[:, 3] == 1)
+   #print("center count", center_count)
    score += center_count * 3
+   #print("score after", score)
 
 	## Horizontal
    for col in range(7):
       col_array = board[:, col]
       for row in col_array:
          window = col_array[row:row + 4]
-         score += eval_window(window, max_play)
+         score += eval_sliding_window(window, max_play)
 
 	## Vertical
    for row in range(6):
       row_array = board[row, :]
       for col in row_array:
          window = row_array[row:row + 4]
-         score += eval_window(window, max_play)
+         score += eval_sliding_window(window, max_play)
 
 	## Diagonal
    for col in range(4):
       for row in range(3):
          window_1 = [board[row, col], board[row + 1, col + 1], board[row + 2, col + 2], board[row + 3, col + 3]]
          window_2 = [board[5 - row, 6 - col], board[4 - row, 5 - col], board[3 - row, 4 - col], board[2 - row, 3 - col]]
-         score += eval_window(window_1, max_play)
-         score += eval_window(window_2, max_play)
+         score += eval_sliding_window(window_1, max_play)
+         score += eval_sliding_window(window_2, max_play)
 
+   #print("final score", score)
    return score
       
 
@@ -244,7 +256,7 @@ def play_game(vs_server = False):
    done = False
    while not done:
       # Select your move
-      stmove = student_move(copy.copy(env)) # TODO: change input here
+      stmove = student_move(copy.copy(state)) # TODO: change input here
 
       # make both student and bot/server moves
       if vs_server:
