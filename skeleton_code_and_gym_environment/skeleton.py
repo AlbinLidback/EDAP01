@@ -17,32 +17,32 @@ STIL_ID = ["al0235li-s"]  # TODO: fill this list with your stil-id's
 
 
 def call_server(move):
-    res = requests.post(SERVER_ADRESS + "move",
-                       data={
+   res = requests.post(SERVER_ADRESS + "move",
+                           data={
                            "stil_id": STIL_ID,
                            "move": move,  # -1 signals the system to start a new game. any running game is counted as a loss
                            "api_key": API_KEY,
-                       })
-    # For safety some respose checking is done here
-    if res.status_code != 200:
-        print("Server gave a bad response, error code={}".format(res.status_code))
-        exit()
-    if not res.json()['status']:
-        print("Server returned a bad status. Return message: ")
-        print(res.json()['msg'])
-        exit()
-    return res
+                           })
+   # For safety some respose checking is done here
+   if res.status_code != 200:
+      print("Server gave a bad response, error code={}".format(res.status_code))
+      exit()
+   if not res.json()['status']:
+      print("Server returned a bad status. Return message: ")
+      print(res.json()['msg'])
+      exit()
+   return res
 
 
 def check_stats():
-    res = requests.post(SERVER_ADRESS + "stats",
-                       data={
+   res = requests.post(SERVER_ADRESS + "stats",
+                        data={
                            "stil_id": STIL_ID,
                            "api_key": API_KEY,
-                       })
+                        })
 
-    stats = res.json()
-    return stats
+   stats = res.json()
+   return stats
 
 
 """
@@ -55,24 +55,24 @@ use your own algorithm for selecting actions too
 
 
 def opponents_move(env):
-    env.change_player()  # change to oppoent
-    avmoves = env.available_moves()
-    if not avmoves:
-        env.change_player()  # change back to student before returning
-        return -1
+   env.change_player()  # change to oppoent
+   avmoves = env.available_moves()
+   if not avmoves:
+      env.change_player()  # change back to student before returning
+      return -1
 
-    # TODO: Optional? change this to select actions with your policy too
-    # that way you get way more interesting games, and you can see if starting
-    # is enough to guarrantee a win
-    action = random.choice(list(avmoves))
+   # TODO: Optional? change this to select actions with your policy too
+   # that way you get way more interesting games, and you can see if starting
+   # is enough to guarrantee a win
+   action = random.choice(list(avmoves))
+   #action = random.choice(minmax(state, 5, -math.inf, math.inf, True)[0])
 
-    state, reward, done, _ = env.step(action)
-    if done:
-        if reward == 1:  # reward is always in current players view
-            reward = -1
-    env.change_player()  # change back to student before returning
-    return state, reward, done
-
+   state, reward, done, _ = env.step(action)
+   if done:
+      if reward == 1:  # reward is always in current players view
+         reward = -1
+   env.change_player()  # change back to student before returning
+   return state, reward, done
 
 def student_move(board) -> int:
    """
@@ -83,64 +83,58 @@ def student_move(board) -> int:
    """
 
    # choice = random.choice([0, 1, 2, 3, 4, 5, 6])
-   # score = None
-
    choice, score = minmax(board, 5, -math.inf, math.inf, True)
-   print("Move to return: ", choice, ". With a score of: ", score, "\n")
+   print("AI Move to return: ", choice, ". With a score of: ", score, "\n")
    if choice == None:
-       print("CHOICE = None!\nChanging to 3")
-       choice = 3
+      print("AI CHOICE = None!")
    return choice
 
 
 def minmax(game, depth, alpha, beta, max_play):
-    valid_locations = get_available_moves(game)
-    winningPlayer = winning_move(game, -1)
-    winningAI = winning_move(game, 1)
+   valid_locations = get_available_moves(game)
+   winningPlayer = winning_move(game, -1)
+   winningAI = winning_move(game, 1)
     
-    is_terminal = winningPlayer or winningAI or len(valid_locations) == 0
+   is_terminal = winningPlayer or winningAI or len(valid_locations) == 0
 
-    # fel här någon stanns
-    if depth == 0 or is_terminal:
-        # print("In depth0. WinningAI = {}, WinningPlayer = {}, Depth = {}".format(winningAI,winningPlayer,depth))
-        if is_terminal:
-            if winningAI:
-                return None, 100 #math.inf
-            elif winningPlayer:
-                return None, -100 #-math.inf
-        else:
-            return None, score_position(game, 1)
+   if depth == 0 or is_terminal:
+      if is_terminal:
+         if winningAI:
+            return None, 100 #math.inf
+         elif winningPlayer:
+            return None, -100 #-math.inf
+      else:
+         return None, score_position(game, 1)
 
-    if max_play:
-        value = -math.inf
-        column = random.choice(valid_locations)
-        for col in valid_locations:
-            game_copy = add_disc_in_col(copy.copy(game), col, 1)
-            new_score = minmax(game_copy, depth - 1, alpha, beta, False)[1]
-            if new_score > value:
-                value = new_score
-                column = col
+   if max_play:
+      value = -math.inf
+      column = random.choice(valid_locations)
+      for col in valid_locations:
+         game_copy = add_disc_in_col(copy.copy(game), col, 1)
+         new_score = minmax(game_copy, depth - 1, alpha, beta, False)[1]
+         if new_score > value:
+            value = new_score
+            column = col
 
-            alpha = max(alpha, value)
-            if alpha >= beta:
-                break
-        return column, value
+         alpha = max(alpha, value)
+         if alpha >= beta:
+            break
+      return column, value
 
-    else:  # minPlay
-        value = math.inf
-        column = 0
-        column = random.choice(valid_locations)
-        for col in valid_locations:
-            game_copy = add_disc_in_col(copy.copy(game), col, -1)
-            new_score = minmax(game_copy, depth - 1, alpha, beta, True)[1]
-            if new_score < value:
-                value = new_score
-                column = col
+   else:  # minPlay
+      value = math.inf
+      column = random.choice(valid_locations)
+      for col in valid_locations:
+         game_copy = add_disc_in_col(copy.copy(game), col, -1)
+         new_score = minmax(game_copy, depth - 1, alpha, beta, True)[1]
+         if new_score < value:
+            value = new_score
+            column = col
 
-            beta = min(beta, value)
-            if alpha >= beta:
-                break
-        return column, value
+         beta = min(beta, value)
+         if alpha >= beta:
+            break
+   return column, value
 
 
 def score_position(board, piece):
@@ -180,30 +174,30 @@ def score_position(board, piece):
 
 
 def winning_move(board, piece):
-    # horizontal
-    for c in range(4):  # 7-3
-        for r in range(6):
-            if board[r, c] == piece and board[r, c+1] == piece and board[r, c+2] == piece and board[r, c+3] == piece:
-                return True
+   # horizontal
+   for c in range(4):  # 7-3
+      for r in range(6):
+         if board[r, c] == piece and board[r, c+1] == piece and board[r, c+2] == piece and board[r, c+3] == piece:
+            return True
 
    # vertical
-    for c in range(7):
-        for r in range(3):  # 6-3
-            if board[r, c] == piece and board[r+1, c] == piece and board[r+2, c] == piece and board[r+3, c] == piece:
-                return True
+   for c in range(7):
+      for r in range(3):  # 6-3
+         if board[r, c] == piece and board[r+1, c] == piece and board[r+2, c] == piece and board[r+3, c] == piece:
+            return True
 
-    # pos slope
-    for c in range(4): #7-3
-        for r in range(3): # 6-3
-            if board[r+1, c+1] == piece and board[r+1, c+1] == piece and board[r+2, c+2] == piece and board[r+3, c+3] == piece:
-                return True
+   # pos slope
+   for c in range(4): #7-3
+      for r in range(3): # 6-3
+         if board[r+1, c+1] == piece and board[r+1, c+1] == piece and board[r+2, c+2] == piece and board[r+3, c+3] == piece:
+            return True
 
-    # neg slope
-    for c in range(4): #7-3
-        for r in range(3, 6):
-            if board[r, c] == piece and board[r-1, c+1] == piece and board[r-2, c+2] == piece and board[r-3, c+3] == piece:
-                return True   
-    return False
+   # neg slope
+   for c in range(4): #7-3
+      for r in range(3, 6):
+         if board[r, c] == piece and board[r-1, c+1] == piece and board[r-2, c+2] == piece and board[r-3, c+3] == piece:
+            return True   
+   return False
 
 def add_disc_in_col(org_game, col, player:int):
    game = list(org_game[: , col])
@@ -356,6 +350,7 @@ def play_game(vs_server = False):
 
          # select and make a move for the opponent, returned reward from students view
          if not done:
+            #state, result, done = student_move2(env)
             state, result, done = opponents_move(env)
 
       # Check if the game is over
