@@ -13,7 +13,7 @@ env: ConnectFourEnv = gym.make("ConnectFour-v0")
 #SERVER_ADRESS = "http://localhost:8000/"
 SERVER_ADRESS = "https://vilde.cs.lth.se/edap01-4inarow/"
 API_KEY = 'nyckel'
-STIL_ID = ["da20example-s1"] # TODO: fill this list with your stil-id's
+STIL_ID = ["al0235li-s"] # TODO: fill this list with your stil-id's
 
 def call_server(move):
    res = requests.post(SERVER_ADRESS + "move",
@@ -79,7 +79,7 @@ def student_move(board) -> int:
    #choice = random.choice([0, 1, 2, 3, 4, 5, 6])
    #score = None
 
-   choice, score = minmax(board, 1, -math.inf, math.inf, True)
+   choice, score = minmax(board, 6, -math.inf, math.inf, True)
    print("Move to return: ", choice,". With a score of: ", score, "\n")
    return choice
 
@@ -92,34 +92,35 @@ def minmax(game, depth, alpha, beta, max_play):
 
    if max_play:
       old_score = -math.inf
-      column = 3
+      column = None
       for col in valid_locations:         
          game_copy = add_disc_in_col(copy.copy(game), col, 1)
-         new_choice, new_score = minmax(game_copy, depth - 1, alpha, beta, False)
-         print("MAX forloop depth {}\ncol {}, old_score {}, new_score {}, best column {}".format(depth, col, old_score, new_score, column))
+         #print("---\n", game, "\n", game_copy)
+         new_score = minmax(game_copy, depth - 1, alpha, beta, False)[1]
+         #print("MAX forloop depth {}\ncol {}, old_score {}, new_score {}, best column {}".format(depth, col, old_score, new_score, column))
          if new_score > old_score:
             old_score = new_score
             column = col
-         print("col {}, old_score {}, new_score {}, best column {}\nMAX after if depth {}".format(col, old_score, new_score, column, depth))
+         #print("col {}, old_score {}, new_score {}, best column {}\nMAX after if depth {}".format(col, old_score, new_score, column, depth))
          
-         #alpha = max(alpha, old_score)
-         #if alpha <= beta:
-         #   break
+         alpha = max(alpha, new_score)
+         if alpha >= beta:
+            break
       return column, old_score
 
    else: # minPlay 
       old_score = math.inf
-      column = 3
+      column = 0
       for col in valid_locations:
          game_copy = add_disc_in_col(copy.copy(game), col, -1)
-         new_choice, new_score = minmax(game_copy, depth - 1, alpha, beta, True)
-         if new_score > old_score:
+         new_score = minmax(game_copy, depth - 1, alpha, beta, True)[1]
+         if new_score < old_score:
             old_score = new_score
             column = col
          
-         #beta = min(beta, old_score)
-         #if alpha <= beta:
-         #   break
+         beta = min(beta, new_score)
+         if alpha >= beta:
+            break
       return column, old_score
 
 def add_disc_in_col(org_game, col, player:int):
@@ -151,60 +152,52 @@ def eval_sliding_window(window, max_play):
    player = 1 if max_play else -1
    op_player = player * -1
 
-   player_pices = np.count_nonzero(window == player)
-   op_player_pices = np.count_nonzero(window == op_player)
+   array = list(window)
+   player_pices = array.count(player)
+   op_player_pices = array.count(op_player)
+   empty_pices = array.count(0)
 
    if player_pices == 4:
       score += 100
-   elif player_pices == 3 and op_player_pices != 1:
+   elif player_pices == 3 and empty_pices == 1:
       score += 5
-   elif player_pices == 2 and op_player_pices != 2:
+   elif player_pices == 2 and empty_pices == 2:
       score += 2
-   elif player_pices == 1 and op_player_pices != 3:
-      score += 1
 
-   if op_player_pices == 3:
+   if op_player_pices == 4:
+      score -= 100
+   elif op_player_pices == 3 and empty_pices == 1:
       score -= 4
-   elif op_player_pices == 2:
-      score -= 2
 
    return score
 
 def evaluate(board, max_play):
-   player = 0
-   if max_play:
-      player = 1 
-   else:
-      player = -1
-
    score = 0
 
-	## Center   
-   #print(board, "\n--Array",board[:, 3], player)
+   player = -1 if max_play else 1
    center_count = np.count_nonzero(board[:, 3] == 1)
-   #print("center count", center_count)
-   score += center_count * 3
-   #print("score after", score)
+   score += center_count*3
+   #print(score)
 
 	## Horizontal
    for col in range(7):
       col_array = board[:, col]
-      for row in col_array:
-         window = col_array[row:row + 4]
+      for x in range(4):
+         window = col_array[x:x+4]
          score += eval_sliding_window(window, max_play)
 
 	## Vertical
    for row in range(6):
       row_array = board[row, :]
-      for col in row_array:
-         window = row_array[row:row + 4]
+      for x in range(4):
+         window = row_array[x:x+4]
          score += eval_sliding_window(window, max_play)
 
 	## Diagonal
    for col in range(4):
       for row in range(3):
-         window_1 = [board[row, col], board[row + 1, col + 1], board[row + 2, col + 2], board[row + 3, col + 3]]
-         window_2 = [board[5 - row, 6 - col], board[4 - row, 5 - col], board[3 - row, 4 - col], board[2 - row, 3 - col]]
+         window_1 = [board[row + i, col + i] for i in range(4)]
+         window_2 = [board[i - row, i - col] for i in range(4)]
          score += eval_sliding_window(window_1, max_play)
          score += eval_sliding_window(window_2, max_play)
 
