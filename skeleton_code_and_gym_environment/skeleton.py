@@ -74,7 +74,7 @@ def opponents_move(env):
    env.change_player()  # change back to student before returning
    return state, reward, done
 
-def student_move(board) -> int:
+def student_move(board):
    """
    TODO: Implement your min-max alpha-beta pruning algorithm here.
    Give it whatever input arguments you think are necessary
@@ -92,8 +92,8 @@ def student_move(board) -> int:
 
 def minmax(game, depth, alpha, beta, max_play):
    valid_locations = get_available_moves(game)
-   winningPlayer = winning_move(game, -1)
-   winningAI = winning_move(game, 1)
+   winningPlayer = is_winning_move(game, -1)
+   winningAI = is_winning_move(game, 1)
     
    is_terminal = winningPlayer or winningAI or len(valid_locations) == 0
 
@@ -104,7 +104,7 @@ def minmax(game, depth, alpha, beta, max_play):
          elif winningPlayer:
             return None, -100 #-math.inf
       else:
-         return None, score_position(game, 1)
+         return None, get_score(game, max_play)
 
    if max_play:
       value = -math.inf
@@ -112,12 +112,14 @@ def minmax(game, depth, alpha, beta, max_play):
       for col in valid_locations:
          game_copy = add_disc_in_col(copy.copy(game), col, 1)
          new_score = minmax(game_copy, depth - 1, alpha, beta, False)[1]
+         #print("MAX, depth ", depth ," Trying col = ", col, ", score = ", new_score)
          if new_score > value:
             value = new_score
             column = col
 
          alpha = max(alpha, value)
          if alpha >= beta:
+            #print(alpha-beta)
             break
       return column, value
 
@@ -127,53 +129,57 @@ def minmax(game, depth, alpha, beta, max_play):
       for col in valid_locations:
          game_copy = add_disc_in_col(copy.copy(game), col, -1)
          new_score = minmax(game_copy, depth - 1, alpha, beta, True)[1]
+         #print("MIN, depth ", depth ," Trying col = ", col, ", score = ", new_score)
          if new_score < value:
             value = new_score
             column = col
 
          beta = min(beta, value)
          if alpha >= beta:
+            #print(alpha-beta)
             break
    return column, value
 
 
-def score_position(board, piece):
+def get_score(board, piece):
    score = 0
 
    player = -1 if piece else 1
-   center_count = np.count_nonzero(board[:, 3] == piece)
-   score += center_count*3
+   center_array = list(board[:, 3])
+   center_count = center_array.count(player)
+   #print("Center board: ", board[:, 3], "player is ", player, "count is ", center_count)
+   score += center_count * 2
 
 	# Horizontal
    for r in range(6):
       row_array = board[r, :]
-      for c in range(7-3):
+      for c in range(4): # 7-3
          window = row_array[c:c+4]
-         score += eval_sliding_window(window, piece)
-
+         score += evaluate_sliding_window(window, player)
+         
 	# Vertical
    for c in range(7):
       col_array = board[:, c]
       for r in range(6-3):
          window = col_array[r:r+4]
-         score += eval_sliding_window(window, piece)
+         score += evaluate_sliding_window(window, player)
 
 	# pos diagonal
    for r in range(6-3):
       for c in range(7-3):
          window = [board[r + i, c + i] for i in range(4)]
-         score += eval_sliding_window(window, piece)
+         score += evaluate_sliding_window(window, player)
 
    # neg diagonal
    for r in range(6-3):
       for c in range(7-3):
          window = [board[r + 3 - i, c + i] for i in range(4)]
-         score += eval_sliding_window(window, piece)
+         score += evaluate_sliding_window(window, player)
 
    return score
 
 
-def winning_move(board, piece):
+def is_winning_move(board, piece):
    # horizontal
    for c in range(4):  # 7-3
       for r in range(6):
@@ -189,7 +195,7 @@ def winning_move(board, piece):
    # pos slope
    for c in range(4): #7-3
       for r in range(3): # 6-3
-         if board[r+1, c+1] == piece and board[r+1, c+1] == piece and board[r+2, c+2] == piece and board[r+3, c+3] == piece:
+         if board[r, c] == piece and board[r+1, c+1] == piece and board[r+2, c+2] == piece and board[r+3, c+3] == piece:
             return True
 
    # neg slope
@@ -218,64 +224,30 @@ def get_available_moves(game) -> int:
          available.append(col)
    return available
 
-def next_free_row(board, col):
-   for row in range(6):
-      if board[5 - row, col] == 0:
-         return row
-
-def eval_sliding_window(window, max_play):
+def evaluate_sliding_window(window, player):
    score = 0
-   player = 1 if max_play else -1
+   #player = -1 if max_play else 1
    op_player = player * -1
 
    array = list(window)
    player_pices = array.count(player)
    op_player_pices = array.count(op_player)
-   empty_pices = array.count(0)
+   empty_pices = array.count(int(0))
+
+   #print("Window ", array, ", num of play", player_pices, ", num of op_play", op_player_pices, ", num of fre", empty_pices)
 
    if player_pices == 4:
-      score += 100
-   elif player_pices == 3 and empty_pices == 1:
+      score += 10
+   if player_pices == 3 and empty_pices == 1:
       score += 5
-   elif player_pices == 2 and empty_pices == 2:
+   if player_pices == 2 and empty_pices == 2:
       score += 2
 
-   elif op_player_pices == 3 and empty_pices == 1:
-      score -= 10
+   if op_player_pices == 4:
+      score -= 30
+   if op_player_pices == 3 and empty_pices == 1:
+      score -= 20
 
-   return score
-
-def evaluate(board, max_play):
-   score = 0
-
-   player = -1 if max_play else 1
-   center_count = np.count_nonzero(board[:, 3] == 1)
-   score += center_count*3
-   # print(score)
-
-	# Horizontal
-   for col in range(7):
-      col_array = board[:, col]
-      for x in range(4):
-         window = col_array[x:x+4]
-         score += eval_sliding_window(window, max_play)
-
-	# Vertical
-   for row in range(6):
-      row_array = board[row, :]
-      for x in range(4):
-         window = row_array[x:x+4]
-         score += eval_sliding_window(window, max_play)
-
-	# Diagonal
-   for col in range(4):
-      for row in range(3):
-         window_1 = [board[row + i, col + i] for i in range(4)]
-         window_2 = [board[i - row, i - col] for i in range(4)]
-         score += eval_sliding_window(window_1, max_play)
-         score += eval_sliding_window(window_2, max_play)
-
-   # print("final score", score)
    return score
       
 
