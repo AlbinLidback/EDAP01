@@ -5,7 +5,7 @@ import numpy as np
 import argparse
 import sys
 import math
-import copy
+from copy import copy, deepcopy
 from gym_connect_four import ConnectFourEnv
 
 env: ConnectFourEnv = gym.make("ConnectFour-v0")
@@ -74,7 +74,7 @@ def opponents_move(env):
    env.change_player()  # change back to student before returning
    return state, reward, done
 
-def student_move(board):
+def student_move(state):
    """
    TODO: Implement your min-max alpha-beta pruning algorithm here.
    Give it whatever input arguments you think are necessary
@@ -82,140 +82,153 @@ def student_move(board):
    The function should return a move from 0-6
    """
 
+   board = deepcopy(state)
+   # Start in 3 if AI begin
+   col3 = list(board[:, 3])
+   if col3.count(0) + col3.count(1) == 6:
+      print("2 ez, returning 3")
+      return 3
+
    # choice = random.choice([0, 1, 2, 3, 4, 5, 6])
-   choice, score = minmax(board, 5, -math.inf, math.inf, True)
+   valid_columns = get_available_moves(board)
+   scores = [-math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf]
+   for columns in valid_columns:
+      placed = deepcopy(board)
+      placed[get_row(board, columns)][columns] = 1
+      scores[columns] = minmax(placed, 0, -math.inf, math.inf, False)
+      print("Trying ", columns, "score of ", scores[columns])
+
+   choice = np.argmax(scores)
+   score = scores[choice]
+
    print("AI Move to return: ", choice, ". With a score of: ", score, "\n")
-   if choice == None:
-      print("AI CHOICE = None!")
+   
    return choice
 
 
 def minmax(game, depth, alpha, beta, max_play):
+   max_depth = 4
+   
+   player = -1
+   if max_play == True:
+      player = 1
+
+   if is_winning_move(game, player) or is_winning_move(game, -player):
+      return get_score(game)
+   if depth == max_depth:
+      return get_score(game)
+
    valid_locations = get_available_moves(game)
-   winningPlayer = is_winning_move(game, -1)
-   winningAI = is_winning_move(game, 1)
-    
-   is_terminal = winningPlayer or winningAI or len(valid_locations) == 0
-
-   if depth == 0 or is_terminal:
-      if is_terminal:
-         if winningAI:
-            return None, 100 #math.inf
-         elif winningPlayer:
-            return None, -100 #-math.inf
-      else:
-         return None, get_score(game, max_play)
-
    if max_play:
-      value = -math.inf
-      column = random.choice(valid_locations)
+      value = -100000
       for col in valid_locations:
-         game_copy = add_disc_in_col(copy.copy(game), col, 1)
-         new_score = minmax(game_copy, depth - 1, alpha, beta, False)[1]
-         #print("MAX, depth ", depth ," Trying col = ", col, ", score = ", new_score)
-         if new_score > value:
-            value = new_score
-            column = col
+         game_copy = deepcopy(game)
+         game_copy[get_row(game, col)][col] = player
+         value = max(value, minmax(game_copy, depth + 1, alpha, beta, False))
+         if value >= beta:
+            return value   
 
          alpha = max(alpha, value)
-         if alpha >= beta:
-            #print(alpha-beta)
-            break
-      return column, value
+      return value
 
    else:  # minPlay
-      value = math.inf
-      column = random.choice(valid_locations)
+      value = 100000
       for col in valid_locations:
-         game_copy = add_disc_in_col(copy.copy(game), col, -1)
-         new_score = minmax(game_copy, depth - 1, alpha, beta, True)[1]
-         #print("MIN, depth ", depth ," Trying col = ", col, ", score = ", new_score)
-         if new_score < value:
-            value = new_score
-            column = col
-
+         game_copy = deepcopy(game)
+         game_copy[get_row(game, col)][col] = player
+         value = min(value, minmax(game_copy, depth + 1, alpha, beta, True))
+         if value <= alpha:
+            return value
+            
          beta = min(beta, value)
-         if alpha >= beta:
-            #print(alpha-beta)
-            break
-   return column, value
+   return value
 
+def is_winning_move(board, player):
+   row = 6
+   col = 7
 
-def get_score(board, piece):
-   score = 0
-
-   player = -1 if piece else 1
-   center_array = list(board[:, 3])
-   center_count = center_array.count(player)
-   #print("Center board: ", board[:, 3], "player is ", player, "count is ", center_count)
-   score += center_count * 2
-
-	# Horizontal
-   for r in range(6):
-      row_array = board[r, :]
-      for c in range(4): # 7-3
-         window = row_array[c:c+4]
-         score += evaluate_sliding_window(window, player)
-         
-	# Vertical
-   for c in range(7):
-      col_array = board[:, c]
-      for r in range(6-3):
-         window = col_array[r:r+4]
-         score += evaluate_sliding_window(window, player)
-
-	# pos diagonal
-   for r in range(6-3):
-      for c in range(7-3):
-         window = [board[r + i, c + i] for i in range(4)]
-         score += evaluate_sliding_window(window, player)
-
-   # neg diagonal
-   for r in range(6-3):
-      for c in range(7-3):
-         window = [board[r + 3 - i, c + i] for i in range(4)]
-         score += evaluate_sliding_window(window, player)
-
-   return score
-
-
-def is_winning_move(board, piece):
    # horizontal
-   for c in range(4):  # 7-3
-      for r in range(6):
-         if board[r, c] == piece and board[r, c+1] == piece and board[r, c+2] == piece and board[r, c+3] == piece:
+   for c in range(col - 3):  # 7-3
+      for r in range(row):
+         if board[r, c] == player and board[r, c+1] == player and board[r, c+2] == player and board[r, c+3] == player:
             return True
 
    # vertical
-   for c in range(7):
-      for r in range(3):  # 6-3
-         if board[r, c] == piece and board[r+1, c] == piece and board[r+2, c] == piece and board[r+3, c] == piece:
+   for c in range(col):
+      for r in range(row - 3):  # 6-3
+         if board[r, c] == player and board[r+1, c] == player and board[r+2, c] == player and board[r+3, c] == player:
             return True
 
    # pos slope
-   for c in range(4): #7-3
-      for r in range(3): # 6-3
-         if board[r, c] == piece and board[r+1, c+1] == piece and board[r+2, c+2] == piece and board[r+3, c+3] == piece:
+   for c in range(col - 3): #7-3
+      for r in range(row - 3): # 6-3
+         if board[r, c] == player and board[r+1, c+1] == player and board[r+2, c+2] == player and board[r+3, c+3] == player:
             return True
 
    # neg slope
-   for c in range(4): #7-3
-      for r in range(3, 6):
-         if board[r, c] == piece and board[r-1, c+1] == piece and board[r-2, c+2] == piece and board[r-3, c+3] == piece:
+   for c in range(col - 3): #7-3
+      for r in range(3, row):
+         if board[r, c] == player and board[r-1, c+1] == player and board[r-2, c+2] == player and board[r-3, c+3] == player:
             return True   
    return False
 
-def add_disc_in_col(org_game, col, player:int):
-   game = list(org_game[: , col])
-   for x in range(6):
-      if x < 5:
-         if game[x] == 0 and game[x + 1] != 0:
-            game[x] = player
-      else:
-         game[x] = player
-   ret_game = org_game
-   ret_game[:, col] = np.array(game)
-   return ret_game
+def get_score(board):
+   score = 0
+
+   row = 6
+   col = 7
+   
+   #center_array = list(board[:, 3])
+   #center_count = center_array.count(player)
+   #print("Center board: ", board[:, 3], "player is ", player, "count is ", center_count)
+   #score += center_count
+
+	# Horizontal
+   for c in range(col - 3):
+      for r in range(row):
+         window = [board[r][c], board[r][c + 1], board[r][c + 2], board[r][c + 3]]
+         score += evaluate_sliding_window(window)
+         
+	# Vertical
+   for c in range(col):
+      for r in range(row - 3):
+         window = [board[r, c], board[r + 1][c], board[r + 2][c], board[r + 3][c]]
+         score += evaluate_sliding_window(window)
+
+	# pos diagonal
+   for c in range(col - 3):
+      for r in range(row -3):
+         #window = [board[r + i, c + i] for i in range(4)]
+         window = [board[r][c], board[r + 1][c + 1], board[r + 2][c + 2], board[r + 3][c + 3]]
+         score += evaluate_sliding_window(window)
+
+   # neg diagonal
+   for c in range(col -3):
+      for r in range(3, row):
+         #window = [board[r + 3 - i, c + i] for i in range(4)]
+         window = [board[r][c], board[r - 1][c + 1], board[r - 2][c + 2], board[r - 3][c + 3]]
+         score += evaluate_sliding_window(window)
+   
+   return score
+
+def evaluate_sliding_window(window):
+   score = 0
+   #print("Window ", array, ", num of play", player_pices, ", num of op_play", op_player_pices, ", num of fre", empty_pices)
+
+   if window.count(1) == 4:
+      score += 1000000
+   elif window.count(1) == 3 and window.count(0) == 1:
+      score += 2
+   elif window.count(1) == 2 and window.count(0) == 2:
+      score += 1
+
+   if window.count(-1) == 4:
+      score -= 500
+   elif window.count(-1) == 3 and window.count(0) == 1:
+      score -= 2
+
+   return score
+
 
 def get_available_moves(game) -> int:
    available = []
@@ -224,31 +237,13 @@ def get_available_moves(game) -> int:
          available.append(col)
    return available
 
-def evaluate_sliding_window(window, player):
-   score = 0
-   #player = -1 if max_play else 1
-   op_player = player * -1
 
-   array = list(window)
-   player_pices = array.count(player)
-   op_player_pices = array.count(op_player)
-   empty_pices = array.count(int(0))
-
-   #print("Window ", array, ", num of play", player_pices, ", num of op_play", op_player_pices, ", num of fre", empty_pices)
-
-   if player_pices == 4:
-      score += 10
-   if player_pices == 3 and empty_pices == 1:
-      score += 5
-   if player_pices == 2 and empty_pices == 2:
-      score += 2
-
-   if op_player_pices == 4:
-      score -= 30
-   if op_player_pices == 3 and empty_pices == 1:
-      score -= 20
-
-   return score
+def get_row(board, col):
+   row = 5
+   while row >= 0:
+      if board[row][col] == 0:
+         return row
+      row -= 1
       
 
 def play_game(vs_server = False):
@@ -295,7 +290,7 @@ def play_game(vs_server = False):
    done = False
    while not done:
       # Select your move
-      stmove = student_move(copy.copy(state)) # TODO: change input here
+      stmove = student_move(deepcopy(state)) # TODO: change input here
 
       # make both student and bot/server moves
       if vs_server:
