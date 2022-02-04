@@ -86,7 +86,7 @@ def student_move(state):
    # Start in 3 if AI begin
    col3 = list(board[:, 3])
    if col3.count(0) + col3.count(1) == 6:
-      print("2 ez, returning 3")
+      # print("2 ez, returning 3")
       return 3
 
    # choice = random.choice([0, 1, 2, 3, 4, 5, 6])
@@ -95,40 +95,39 @@ def student_move(state):
    for columns in valid_columns:
       placed = deepcopy(board)
       placed[get_row(board, columns)][columns] = 1
-      scores[columns] = minmax(placed, 0, -math.inf, math.inf, False)
-      print("Trying ", columns, "score of ", scores[columns])
+      scores[columns] = minmax(placed, 3, -math.inf, math.inf, False)
+      #print("Trying ", columns, "score of ", scores[columns])
 
    choice = np.argmax(scores)
    score = scores[choice]
 
-   print("AI Move to return: ", choice, ". With a score of: ", score, "\n")
+   print("Best move is ", choice, ", with a score of ", score, ".\n")
    
    return choice
 
 
 def minmax(game, depth, alpha, beta, max_play):
-   max_depth = 4
-   
    player = -1
    if max_play == True:
       player = 1
 
    if is_winning_move(game, player) or is_winning_move(game, -player):
       return get_score(game)
-   if depth == max_depth:
+   if depth == 0:
       return get_score(game)
 
    valid_locations = get_available_moves(game)
    if max_play:
-      value = -100000
+      value = -math.inf
       for col in valid_locations:
          game_copy = deepcopy(game)
          game_copy[get_row(game, col)][col] = player
-         value = max(value, minmax(game_copy, depth + 1, alpha, beta, False))
-         if value >= beta:
-            return value   
-
+         new_value = max(value, minmax(game_copy, depth - 1, alpha, beta, False))
+         if new_value > value:
+            value = new_value
          alpha = max(alpha, value)
+         if alpha >= beta:
+            break
       return value
 
    else:  # minPlay
@@ -136,11 +135,12 @@ def minmax(game, depth, alpha, beta, max_play):
       for col in valid_locations:
          game_copy = deepcopy(game)
          game_copy[get_row(game, col)][col] = player
-         value = min(value, minmax(game_copy, depth + 1, alpha, beta, True))
-         if value <= alpha:
-            return value
-            
+         new_value = min(value, minmax(game_copy, depth - 1, alpha, beta, True))
+         if new_value < value:
+            value = new_value
          beta = min(beta, value)
+         if alpha >= beta:
+            break
    return value
 
 def is_winning_move(board, player):
@@ -178,10 +178,11 @@ def get_score(board):
    row = 6
    col = 7
    
-   #center_array = list(board[:, 3])
-   #center_count = center_array.count(player)
+   # Bias for the middel
+   center_array = list(board[:, 3])
+   center_count = center_array.count(1)
    #print("Center board: ", board[:, 3], "player is ", player, "count is ", center_count)
-   #score += center_count
+   score += center_count
 
 	# Horizontal
    for c in range(col - 3):
