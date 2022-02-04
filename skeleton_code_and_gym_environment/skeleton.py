@@ -106,23 +106,23 @@ def student_move(state):
    return choice
 
 
-def minmax(game, depth, alpha, beta, max_play):
+def minmax(board, depth, alpha, beta, max_play):
    player = -1
    if max_play == True:
       player = 1
 
-   if is_winning_move(game, player) or is_winning_move(game, -player):
-      return get_score(game)
+   if is_winning_move(board, player) or is_winning_move(board, -player):
+      return get_score(board)
    if depth == 0:
-      return get_score(game)
+      return get_score(board)
 
-   valid_locations = get_available_moves(game)
+   valid_locations = get_available_moves(board)
    if max_play:
       value = -math.inf
       for col in valid_locations:
-         game_copy = deepcopy(game)
-         game_copy[get_row(game, col)][col] = player
-         new_value = max(value, minmax(game_copy, depth - 1, alpha, beta, False))
+         board_copy = deepcopy(board)
+         board_copy[get_row(board, col)][col] = player
+         new_value = max(value, minmax(board_copy, depth - 1, alpha, beta, False))
          if new_value > value:
             value = new_value
          alpha = max(alpha, value)
@@ -131,11 +131,11 @@ def minmax(game, depth, alpha, beta, max_play):
       return value
 
    else:  # minPlay
-      value = 100000
+      value = math.inf
       for col in valid_locations:
-         game_copy = deepcopy(game)
-         game_copy[get_row(game, col)][col] = player
-         new_value = min(value, minmax(game_copy, depth - 1, alpha, beta, True))
+         board_copy = deepcopy(board)
+         board_copy[get_row(board, col)][col] = player
+         new_value = min(value, minmax(board_copy, depth - 1, alpha, beta, True))
          if new_value < value:
             value = new_value
          beta = min(beta, value)
@@ -217,24 +217,24 @@ def evaluate_sliding_window(window):
    #print("Window ", array, ", num of play", player_pices, ", num of op_play", op_player_pices, ", num of fre", empty_pices)
 
    if window.count(1) == 4:
-      score += 1000000
+      score += math.inf
    elif window.count(1) == 3 and window.count(0) == 1:
       score += 2
    elif window.count(1) == 2 and window.count(0) == 2:
       score += 1
 
    if window.count(-1) == 4:
-      score -= 500
+      score -= math.inf
    elif window.count(-1) == 3 and window.count(0) == 1:
       score -= 2
 
    return score
 
 
-def get_available_moves(game) -> int:
+def get_available_moves(board):
    available = []
    for col in range(7):
-      if game[0, col] == 0:
+      if board[0, col] == 0:
          available.append(col)
    return available
 
