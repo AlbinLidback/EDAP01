@@ -83,13 +83,15 @@ def student_move(state):
    """
 
    board = deepcopy(state)
-   # Start in 3 if AI begin
+
+   # Startar i rad 3 om det går och fortsäter med det
    col3 = list(board[:, 3])
    if col3.count(0) + col3.count(1) == 6:
       # print("2 ez, returning 3")
       return 3
 
    # choice = random.choice([0, 1, 2, 3, 4, 5, 6])
+   # Initierar min max sökningen för alla lediga coloner
    valid_columns = get_available_moves(board)
    scores = [-math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf]
    for columns in valid_columns:
@@ -98,6 +100,7 @@ def student_move(state):
       scores[columns] = minmax(placed, 3, -math.inf, math.inf, False)
       #print("Trying ", columns, "score of ", scores[columns])
 
+   # Väljer colonen som gav högst poäng i min max sökningen
    choice = np.argmax(scores)
    score = scores[choice]
 
@@ -105,18 +108,17 @@ def student_move(state):
    
    return choice
 
-
+# Minmax sökning på de framtida spelbrädena
 def minmax(board, depth, alpha, beta, max_play):
    player = -1
    if max_play == True:
       player = 1
 
-   if is_winning_move(board, player) or is_winning_move(board, -player):
-      return get_score(board)
-   if depth == 0:
+   if is_winning_move(board, player) or is_winning_move(board, -player) or depth == 0:
       return get_score(board)
 
    valid_locations = get_available_moves(board)
+   # max sökning med alpha beta
    if max_play:
       value = -math.inf
       for col in valid_locations:
@@ -130,6 +132,7 @@ def minmax(board, depth, alpha, beta, max_play):
             break
       return value
 
+   # min sökning med alpha beta
    else:  # minPlay
       value = math.inf
       for col in valid_locations:
@@ -143,6 +146,7 @@ def minmax(board, depth, alpha, beta, max_play):
             break
    return value
 
+# Kollar om någon spelare vunit med draget 
 def is_winning_move(board, player):
    row = 6
    col = 7
@@ -172,6 +176,7 @@ def is_winning_move(board, player):
             return True   
    return False
 
+# Räknar ut poängen för spelbrädan
 def get_score(board):
    score = 0
 
@@ -212,6 +217,7 @@ def get_score(board):
    
    return score
 
+# Hjälp funktion till uträkningen
 def evaluate_sliding_window(window):
    score = 0
    #print("Window ", array, ", num of play", player_pices, ", num of op_play", op_player_pices, ", num of fre", empty_pices)
@@ -230,7 +236,7 @@ def evaluate_sliding_window(window):
 
    return score
 
-
+# Returnerar de coloner som man kan plaserar pejäs i
 def get_available_moves(board):
    available = []
    for col in range(7):
@@ -238,7 +244,7 @@ def get_available_moves(board):
          available.append(col)
    return available
 
-
+# Returnerar första lediga rad i en colon
 def get_row(board, col):
    row = 5
    while row >= 0:
