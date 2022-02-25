@@ -61,8 +61,8 @@ class Localizer:
     
     # add your simulator and filter here, for example    
         
-        #self.__rs = RobotSimAndFilter.RobotSim( ...)
-        #self.__HMM = RobotSimAndFilter.HMMFilter( ...)
+        self.__rs = RobotSimAndFilter.RobotSim(self.__sm, self.__tm, self.__om, self.__trueState)
+        self.__HMM = RobotSimAndFilter.HMMFilter(self.__tm, self.__om)
     #
     #  Implement the update cycle:
     #  - robot moves one step, generates new state / pose
@@ -85,6 +85,12 @@ class Localizer:
     def update(self) -> (bool, int, int, int, int, int, int, int, int, np.array(1)) :
         # update all the values to something sensible instead of just reading the old values...
         # 
+        self.__trueState = self.__rs.new_move(self.__trueState)
+        #tsX, tsY, tsH = self.__sm.state_to_pose(self.__trueState)
+        
+        self.__sense = self.__rs.get_sensor_reading(self.__trueState)
+
+        self.__probs = self.__HMM.forward_filter(self.__probs, self.__sens)
         
         # this block can be kept as is
         ret = False  # in case the sensor reading is "nothing" this is kept...
@@ -94,11 +100,13 @@ class Localizer:
         if self.__sense != None:
             srX, srY = self.__sm.reading_to_position(self.__sense)
             ret = True
-            
-        eX, eY = self.__estimate
+        
+        self.__estimate = self.__sm.state_to_position(self.__probs)
+        eX, eY = self.__estimate # -- behöver uppdateras på något smart sätt
         
         # this should be updated to spit out the actual error for this step
-        error = 10.0                
+        # error = 10.0  
+        error = abs(tsX-eX) + abs(tsY-eY)   
         
         # if you use the visualisation (dashboard), this return statement needs to be kept the same
         # or the visualisation needs to be adapted (your own risk!)
