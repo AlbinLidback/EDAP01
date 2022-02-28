@@ -90,19 +90,19 @@ class Localizer:
         tsX, tsY, tsH = self.__sm.state_to_pose(self.__trueState)
         
         self.__sense = self.__rs.read_sensor(tsX, tsY)
-        print("self sense", self.__sense)
 
-        self.__probs, self.__estimate = self.__HMM.forward_filter(self.__sense, self.__probs)
+        self.__probs = self.__HMM.forward_filter(self.__sense, self.__probs)
         
         # this block can be kept as is
         ret = False  # in case the sensor reading is "nothing" this is kept...
-        tsX, tsY, tsH = self.__sm.state_to_pose(self.__trueState)
+        #tsX, tsY, tsH = self.__sm.state_to_pose(self.__trueState)
         srX = -1
         srY = -1
         if self.__sense != None:
-            srX, srY = self.__sm.reading_to_position(self.__sense) # self.__sense #self.__sm.reading_to_position(    )
+            srX, srY = self.__sense # self.__sm.reading_to_position(self.__sense) # self.__sense #self.__sm.reading_to_position(    )
             ret = True
         
+        self.__estimate = self.__sm.state_to_position(np.argmax(self.__probs))
         eX, eY = self.__estimate
         
         # this should be updated to spit out the actual error for this step

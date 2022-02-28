@@ -28,16 +28,13 @@ class RobotSim:
         
     # new move
     def new_move(self) -> int:
-        print("new_move")
-        x,y,h = self.sm.state_to_pose(self.state)
+        x, y, h = self.sm.state_to_pose(self.state)
         av_headings = self.av_headings(x, y)
 
         ran = random.random()
-        new_h = -1
+        new_h = random.choice(av_headings)
         if h in av_headings and ran >= 0.7:
             new_h = h
-        else: 
-            new_h = random.choice(av_headings)
 
         if h == 0:
             x -= 1
@@ -48,7 +45,7 @@ class RobotSim:
         elif h == 3:
             y -= 1
 
-        self.state = self.sm.pose_to_state(x, y, h)
+        self.state = self.sm.pose_to_state(x, y, new_h)
         return self.state
 
     def av_headings(self, x, y):
@@ -56,50 +53,46 @@ class RobotSim:
 
         if x > 0:
             av_headings.append(0)
-        if y < self.cols-1:
-            av_headings.append(1)
-        if x < self.rows-1:
-            av_headings.append(2)
         if y > 0:
             av_headings.append(3)
+        if x < self.rows - 1:
+            av_headings.append(2)
+        if y < self.cols - 1:
+            av_headings.append(1)
         
         return av_headings
    
     # get sensor reading
-    def read_sensor(self, x, y) -> int:
-        #n_read = self.om.get_nr_of_readings()
-        #probabilities = np.zeros(n_read)
-        
-        #for n in range(n_read):
-        #    probabilities[n] = self.om.get_o_reading_state(n, self.state)
-            
-        #choices = list(range(len(probabilities)))
-        
-        #return random.choices(choices, probabilities)
+    def read_sensor(self, x, y):
 
-# ----------------------------------------------------------------
-        Ls = [(x+a, y+b) for a,b in [(1,0), (1,1), (0,1), (-1,1), (-1,0), (-1,-1), (0, -1), (1, -1)]]
-        Ls2 = [(x+a, y+b) for a,b in [(2,-2), (2,-1), (2,0), (2,1), (2,2), (-2,-2), (-2,-1), (-2,0), (-2,1), (-2,2), (1,2), (0,2), (-1,2), (1,-2), (0,-2), (-1,-2)]]
+        layer_1 = []
+        for r in range(-1, 1):
+            for c in range(-1, 1):
+                if r != 0 and c != 0:
+                    layer_1.append((x + r, y + c))
         
-        inside_grid = lambda xy: xy[0] >= 0 and xy[0] < self.rows and xy[1] >= 0 and xy[1] < self.cols 
-        Ls = list(filter(inside_grid, Ls))
-        Ls2 = list(filter(inside_grid, Ls2))
+        layer_2 = []
+        for r in range(-2, 2):
+            for c in range(-2, 2):
+                if abs(r) + abs(c) > 1:
+                    layer_2.append((x + r, y + c))
 
-        # print("x y:", x,y)
-        # print("LS:", Ls)
-        # print("Ls2:", Ls2)
+        # TODO ta bort grejer utanför planen
+        outside = lambda xy: xy[0] >= 0 and xy[0] < self.rows and xy[1] >= 0 and xy[1] < self.cols 
+        layer_1 = list(filter(outside, layer_1))
+        layer_2 = list(filter(outside, layer_2))
 
         prob = random.random()
+        true_prob = 0.1
+        layer_1_prob = len(layer_1) * 0.05
+        layer_2_prob = len(layer_2) * 0.025
 
-        trueLocation_prob = 0.1
-        ls_prob = len(Ls) * 0.05
-        ls2_prob = len(Ls2) * 0.025
-        if prob <= trueLocation_prob:
+        if prob <= true_prob:
             return self.sm.state_to_position(self.state)
-        elif prob <= trueLocation_prob + ls_prob:
-            return random.choice(Ls)
-        elif prob <= trueLocation_prob + ls_prob + ls2_prob:
-            return random.choice(Ls2)
+        elif prob <= true_prob + layer_1_prob:
+            return random.choice(layer_1)
+        elif prob <= true_prob + layer_1_prob + layer_2_prob:
+            return random.choice(layer_2)
         else:
             return None
     
@@ -115,30 +108,15 @@ class HMMFilter:
         self.state = state
     
     def forward_filter(self, sens, probs):
-        print("forward_filter")
-
-        sens_read = None
+        sensReading = None
         if sens:
-            #sens = self.sm.state_to_position(sens)
-            print(sens)
-            x, y = sens
-            sens_read = self.sm.position_to_reading(x, y)
+            sensReading = self.sm.position_to_reading(sens[0], sens[1])
 
-        o = self.om.get_o_reading(sens_read)
         t_t = self.tm.get_T_transp()
-        
+        o = self.om.get_o_reading(sensReading)
         f = o @ t_t @ probs
-
-        f = f / np.linalg.norm(f)
-
-        est = self.estimate(f)
-        return probs, est
         
-    # skriv om    
-    def estimate(self, probs):
-        probabilities = {}
-        for i, p in enumerate(probs):
-            pos = self.sm.state_to_position(i)
-            probabilities[pos] = probabilities.get(pos, 0) + p
-        
-        return max(probabilities, key=probabilities.get)
+        #f = np.norm(f)
+        f = (1.0 / sum(f) ) * f
+        print("Max:", max(f))
+        return f
