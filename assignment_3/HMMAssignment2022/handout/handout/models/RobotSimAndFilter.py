@@ -10,85 +10,135 @@ from models import TransitionModel,ObservationModel,StateModel
 class RobotSim:
     
     # init
-    def __init__(self, sm, tm, om):
+    def __init__(self, sm, tm, om, state):
         print("Hello World")
-        self.__sm = sm
-        self.__tm = tm
-        self.__om = om
+        self.sm = sm
+        self.tm = tm
+        self.om = om
         
         #x, y, h = self.__sm.get_grid_dimensions()
-        #self.__state = state
+        
+        self.state = state
+        self.rows, self.cols, self.head = self.sm.get_grid_dimensions()
+        
         #self.__sm.pose_to_state(random.randint(0, x), 
         #                                       random.randint(0, y), 
         #                                       random.randint(0, h))
         
         
     # new move
-    def move(self, state):
-        x, y, h = self.__sm.state_to_pose(state)
-        if at_wall(x, y, h) or random.random() < 0.3
-            print("At wall in move. Geting new heading")
-            h = new_heading(x, y, h)
-        state = self.__sm.pose_to_state(new_move(x, y, h))
-        return state
-    
-    def at_wall(self, x, y, h):
-        width, height, heading = self.__sm.get_grid_dimensions()
-        
-        if h == 0 and y == height - 1:
-            return True
-        elif h == 1 and x == width -1:
-            return True
-        elif h == 2 and y == 0:
-            return True
-        elif h == 3 and x == 0:
-            return True
-        return False
-    
-    def new_heading(x, y, h):
-        headings = [0,1,2,3]
-        random.shuffle(headings)
-        for new in headings:
-            if !at_wall(x, y, new):
-                return new
-    
-    def new_move(x, y, h):
+    def new_move(self) -> int:
+        print("new_move")
+        x,y,h = self.sm.state_to_pose(self.state)
+        av_headings = self.av_headings(x, y)
+
+        ran = random.random()
+        new_h = -1
+        if h in av_headings and ran >= 0.7:
+            new_h = h
+        else: 
+            new_h = random.choice(av_headings)
+
         if h == 0:
-            return x, y + 1, h
+            x -= 1
         elif h == 1:
-            return x + 1, y, h
+            y += 1
         elif h == 2:
-            return x, y - 1, h
+            x += 1
         elif h == 3:
-            return x - 1, y, h
-        print("Något gick fel i new_move i robotsim")
-        return x, y, h
-    
-    # get sensor reading
-    def get_sensor_reading(self, state):
-        n_read = self.__om.get_nr_of_readings()
-        probabilities = np.zeros(n_read)
+            y -= 1
+
+        self.state = self.sm.pose_to_state(x, y, h)
+        return self.state
+
+    def av_headings(self, x, y):
+        av_headings = []
+
+        if x > 0:
+            av_headings.append(0)
+        if y < self.cols-1:
+            av_headings.append(1)
+        if x < self.rows-1:
+            av_headings.append(2)
+        if y > 0:
+            av_headings.append(3)
         
-        for n in range(n_read):
-            probabilities[i] = self.__om.get_o_reading_state(self.__sm.state_to_pose(n))
+        return av_headings
+   
+    # get sensor reading
+    def read_sensor(self, x, y) -> int:
+        #n_read = self.om.get_nr_of_readings()
+        #probabilities = np.zeros(n_read)
+        
+        #for n in range(n_read):
+        #    probabilities[n] = self.om.get_o_reading_state(n, self.state)
             
-        choices = list(range(len(probabilities) - 1))
-        return random.choices(choices, probabilities)
+        #choices = list(range(len(probabilities)))
+        
+        #return random.choices(choices, probabilities)
+
+# ----------------------------------------------------------------
+        Ls = [(x+a, y+b) for a,b in [(1,0), (1,1), (0,1), (-1,1), (-1,0), (-1,-1), (0, -1), (1, -1)]]
+        Ls2 = [(x+a, y+b) for a,b in [(2,-2), (2,-1), (2,0), (2,1), (2,2), (-2,-2), (-2,-1), (-2,0), (-2,1), (-2,2), (1,2), (0,2), (-1,2), (1,-2), (0,-2), (-1,-2)]]
+        
+        inside_grid = lambda xy: xy[0] >= 0 and xy[0] < self.rows and xy[1] >= 0 and xy[1] < self.cols 
+        Ls = list(filter(inside_grid, Ls))
+        Ls2 = list(filter(inside_grid, Ls2))
+
+        # print("x y:", x,y)
+        # print("LS:", Ls)
+        # print("Ls2:", Ls2)
+
+        prob = random.random()
+
+        trueLocation_prob = 0.1
+        ls_prob = len(Ls) * 0.05
+        ls2_prob = len(Ls2) * 0.025
+        if prob <= trueLocation_prob:
+            return self.sm.state_to_position(self.state)
+        elif prob <= trueLocation_prob + ls_prob:
+            return random.choice(Ls)
+        elif prob <= trueLocation_prob + ls_prob + ls2_prob:
+            return random.choice(Ls2)
+        else:
+            return None
+    
 #
 # Add your Filtering approach here (or within the Localiser, that is your choice!)
 #
 class HMMFilter:
-    def __init__(self, tm, om):
-        print("Hello (again) World")
-        self.__tm = tm
-        self.__om = om
-        
     
-    def forward_filter(self, probabilities, sensor_reading):
-        o = self.__om.get_o_reading(sensor_reading)
-        t = self.__tm.get_T_transp()
+    def __init__(self, sm, tm, om, state):
+        self.sm = sm
+        self.tm = tm
+        self.om = om
+        self.state = state
+    
+    def forward_filter(self, sens, probs):
+        print("forward_filter")
+
+        sens_read = None
+        if sens:
+            #sens = self.sm.state_to_position(sens)
+            print(sens)
+            x, y = sens
+            sens_read = self.sm.position_to_reading(x, y)
+
+        o = self.om.get_o_reading(sens_read)
+        t_t = self.tm.get_T_transp()
         
-        p = 0 @ t @ probabilities
+        f = o @ t_t @ probs
+
+        f = f / np.linalg.norm(f)
+
+        est = self.estimate(f)
+        return probs, est
         
-        return (1/np.linalg.norm(probs))*p
+    # skriv om    
+    def estimate(self, probs):
+        probabilities = {}
+        for i, p in enumerate(probs):
+            pos = self.sm.state_to_position(i)
+            probabilities[pos] = probabilities.get(pos, 0) + p
         
+        return max(probabilities, key=probabilities.get)

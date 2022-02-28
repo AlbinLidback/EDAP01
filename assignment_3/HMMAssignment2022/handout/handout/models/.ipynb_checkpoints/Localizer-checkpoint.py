@@ -10,7 +10,7 @@ import random
 from models import StateModel,TransitionModel,ObservationModel,RobotSimAndFilter
 
 class Localizer:
-    def __init__(self, sm):
+    def __init__(self, sm : StateModel):
 
         self.__sm = sm
 
@@ -54,6 +54,7 @@ class Localizer:
     #
     # (re-)initialise for a new run without change of size
     def initialise(self):
+        print("initializing Localizer")
         self.__trueState = random.randint(0, self.__sm.get_num_of_states() - 1)
         self.__sense = None
         self.__probs = np.ones(self.__sm.get_num_of_states()) / (self.__sm.get_num_of_states())
@@ -61,8 +62,8 @@ class Localizer:
     
     # add your simulator and filter here, for example    
         
-        self.__rs = RobotSimAndFilter.RobotSim(self.__sm, self.__tm, self.__om, self.__trueState)
-        self.__HMM = RobotSimAndFilter.HMMFilter(self.__tm, self.__om)
+        self.__rs = RobotSimAndFilter.RobotSim(self.__sm, self.__trueState)
+        self.__HMM = RobotSimAndFilter.HMMFilter(self.__sm, self.__tm, self.__om)
     #
     #  Implement the update cycle:
     #  - robot moves one step, generates new state / pose
@@ -85,29 +86,33 @@ class Localizer:
     def update(self) -> (bool, int, int, int, int, int, int, int, int, np.array(1)) :
         # update all the values to something sensible instead of just reading the old values...
         # 
-        self.__trueState = self.__rs.new_move(self.__trueState)
-        #tsX, tsY, tsH = self.__sm.state_to_pose(self.__trueState)
-        
-        self.__sense = self.__rs.get_sensor_reading(self.__trueState)
+        self.__trueState = self.__rs.next_state() 
+        tsX, tsY, tsH = self.__sm.state_to_pose(self.__trueState)
 
-        self.__probs = self.__HMM.forward_filter(self.__probs, self.__sens)
+      #  print("True pose:", self.__sm.state_to_pose(self.__trueState))
+
+        self.__sense = self.__rs.robot_sensing(tsX, tsY)
+      #  print("Sensing:", self.__sense)
+
+        self.__probs, self.__estimate = self.__HMM.filtering(self.__sense, self.__probs)
+
         
         # this block can be kept as is
         ret = False  # in case the sensor reading is "nothing" this is kept...
-        tsX, tsY, tsH = self.__sm.state_to_pose(self.__trueState)
+
         srX = -1
         srY = -1
         if self.__sense != None:
-            srX, srY = self.__sm.reading_to_position(self.__sense)
+            srX, srY = self.__sense
             ret = True
         
-        self.__estimate = self.__sm.state_to_position(self.__probs)
-        eX, eY = self.__estimate # -- behöver uppdateras på något smart sätt
-        
+        eX, eY = self.__estimate
+        print("Estimate:", eX, eY)
+
         # this should be updated to spit out the actual error for this step
-        # error = 10.0  
-        error = abs(tsX-eX) + abs(tsY-eY)   
+        error = abs(tsX-eX) + abs(tsY-eY)     #manhattan distance
         
+        print("Error:", error)
         # if you use the visualisation (dashboard), this return statement needs to be kept the same
         # or the visualisation needs to be adapted (your own risk!)
         return ret, tsX, tsY, tsH, srX, srY, eX, eY, error, self.__probs

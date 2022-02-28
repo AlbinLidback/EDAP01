@@ -1,4 +1,5 @@
 
+from operator import pos
 import random
 import numpy as np
 
@@ -7,88 +8,120 @@ from models import TransitionModel,ObservationModel,StateModel
 #
 # Add your Robot Simulator here
 #
+
 class RobotSim:
-    
-    # init
-    def __init__(self, sm, tm, om):
-        print("Hello World")
-        self.__sm = sm
-        self.__tm = tm
-        self.__om = om
+    def __init__(self, sm : StateModel, true_state):
+        self.sm : StateModel = sm 
+        self.true_state = true_state           
+
+        self.rows, self.cols, self.head = self.sm.get_grid_dimensions()
+
+        print("Hello World / RobotSim")
+
+    def possibleHeadings(self, x, y):
+            possible_heading = []
+            if x > 0:
+                possible_heading.append(0)
+            if x < self.rows-1:
+                possible_heading.append(2)
+            if y > 0:
+                possible_heading.append(3)
+            if y < self.cols-1:
+                possible_heading.append(1)
+
+            return possible_heading
+
+    def next_state(self) -> int :
+        x,y,h = self.sm.state_to_pose(self.true_state)          # current pose
+        possible_headings = self.possibleHeadings(x,y)
+
+        if h in possible_headings:              #No wall in front of robot
+            prob = random.random()
+            if prob < 0.3:
+                prev = h
+                while prev == h:
+                    h = random.choice(possible_headings)
+        else:
+            h = random.choice(possible_headings)
+
+        #get new position
+        x -= h == 0
+        y += h == 1
+        x += h == 2
+        y -= h == 3
+        self.true_state = self.sm.pose_to_state(x,y,h)
+
+        return self.true_state
+
+    def robot_sensing(self,x, y):               
+        #Coordinates for ls and ls2
+        ls = [(x+a, y+b) for a,b in [(1,0), (1,1), (0,1), (-1,1), (-1,0), (-1,-1), (0, -1), (1, -1)]]
+        ls2 = [(x+a, y+b) for a,b in [(2,-2), (2,-1), (2,0), (2,1), (2,2), (-2,-2), (-2,-1), (-2,0), (-2,1), (-2,2), (1,2), (0,2), (-1,2), (1,-2), (0,-2), (-1,-2)]]
         
-        #x, y, h = self.__sm.get_grid_dimensions()
-        #self.__state = state
-        #self.__sm.pose_to_state(random.randint(0, x), 
-        #                                       random.randint(0, y), 
-        #                                       random.randint(0, h))
-        
-        
-    # new move
-    def move(self, state):
-        x, y, h = self.__sm.state_to_pose(state)
-        if at_wall(x, y, h) or random.random() < 0.3
-            print("At wall in move. Geting new heading")
-            h = new_heading(x, y, h)
-        state = self.__sm.pose_to_state(new_move(x, y, h))
-        return state
-    
-    def at_wall(self, x, y, h):
-        width, height, heading = self.__sm.get_grid_dimensions()
-        
-        if h == 0 and y == height - 1:
-            return True
-        elif h == 1 and x == width -1:
-            return True
-        elif h == 2 and y == 0:
-            return True
-        elif h == 3 and x == 0:
-            return True
-        return False
-    
-    def new_heading(x, y, h):
-        headings = [0,1,2,3]
-        random.shuffle(headings)
-        for new in headings:
-            if !at_wall(x, y, new):
-                return new
-    
-    def new_move(x, y, h):
-        if h == 0:
-            return x, y + 1, h
-        elif h == 1:
-            return x + 1, y, h
-        elif h == 2:
-            return x, y - 1, h
-        elif h == 3:
-            return x - 1, y, h
-        print("Något gick fel i new_move i robotsim")
-        return x, y, h
-    
-    # get sensor reading
-    def get_sensor_reading(self, state):
-        n_read = self.__om.get_nr_of_readings()
-        probabilities = np.zeros(n_read)
-        
-        for n in range(n_read):
-            probabilities[i] = self.__om.get_o_reading_state(self.__sm.state_to_pose(n))
-            
-        choices = list(range(len(probabilities) - 1))
-        return random.choices(choices, probabilities)
+        #remove all coordinates outside grid
+        inside_grid = lambda xy: xy[0] >= 0 and xy[0] < self.rows and xy[1] >= 0 and xy[1] < self.cols 
+        ls = list(filter(inside_grid, ls))
+        ls2 = list(filter(inside_grid, ls2))
+
+        prob = random.random()
+
+        #probability thresholds
+        trueLocation_prob = 0.1
+        ls_prob = trueLocation_prob + len(ls) * 0.05
+        ls2_prob = ls_prob + len(ls2) * 0.025
+
+        #return based on prob
+        if prob <= trueLocation_prob:
+            return self.sm.state_to_position(self.true_state)
+        elif prob <= ls_prob:
+            return random.choice(ls)
+        elif prob <= ls2_prob:
+            return random.choice(ls2)
+        else:
+            return None
+
 #
 # Add your Filtering approach here (or within the Localiser, that is your choice!)
 #
+
 class HMMFilter:
-    def __init__(self, tm, om):
-        print("Hello (again) World")
-        self.__tm = tm
-        self.__om = om
-        
+    def __init__(self, sm, tm, ob):
+        self.sm : StateModel = sm
+        self.tm : TransitionModel = tm
+        self.ob : ObservationModel = ob
+        print("Hello again, World / HMMFilter")
     
-    def forward_filter(self, probabilities, sensor_reading):
-        o = self.__om.get_o_reading(sensor_reading)
-        t = self.__tm.get_T_transp()
+    def filtering(self, sense, probs):
+        #Get sensed position as reading
+        senseReading = self.sm.position_to_reading(sense[0], sense[1]) if sense else None
+
+        T_trans = self.tm.get_T_transp()
+        O = self.ob.get_o_reading(senseReading)
+        probs = np.matmul(np.matmul(O, T_trans), probs)       
         
-        p = 0 @ t @ probabilities
+        probs = (1.0 / sum(probs) ) * probs         #Normalize
         
-        return (1/np.linalg.norm(probs))*p
+        #print most likely states for debugging
+        # topStates = (-probs).argsort()[:5]
+        # for s in topStates:
+        #     print("Pose:", self.sm.state_to_pose(s), "Likelihood:", res[s])
+
+        #estimate = self.sm.state_to_position(np.argmax(res))
+
+        #sum probabilitites of states corresponding to the same position 
+        estimate = self.getEstimate(probs)
+        return probs, estimate
+    
+    def getEstimate(self, probs):
+        probabilities = {}
+        for i, p in enumerate(probs):
+            pos = self.sm.state_to_position(i)
+            probabilities[pos] = probabilities.get(pos, 0) + p
+        
+        return max(probabilities, key=probabilities.get)
+
+
+
+        
+        
         

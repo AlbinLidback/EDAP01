@@ -43,7 +43,7 @@ class Localizer:
         ret = None
         if self.__sense != None:
             ret = self.__sm.reading_to_position(self.__sense)
-        return ret;
+        return ret
 
     # get the currently most likely position, based on single most probable pose
     def most_likely_position(self) -> (int, int):
@@ -62,7 +62,8 @@ class Localizer:
     # add your simulator and filter here, for example    
         
         self.__rs = RobotSimAndFilter.RobotSim(self.__sm, self.__tm, self.__om, self.__trueState)
-        self.__HMM = RobotSimAndFilter.HMMFilter(self.__tm, self.__om)
+        self.__HMM = RobotSimAndFilter.HMMFilter(self.__sm, self.__tm, self.__om, self.__trueState)
+        
     #
     #  Implement the update cycle:
     #  - robot moves one step, generates new state / pose
@@ -85,12 +86,13 @@ class Localizer:
     def update(self) -> (bool, int, int, int, int, int, int, int, int, np.array(1)) :
         # update all the values to something sensible instead of just reading the old values...
         # 
-        self.__trueState = self.__rs.new_move(self.__trueState)
-        #tsX, tsY, tsH = self.__sm.state_to_pose(self.__trueState)
+        self.__trueState = self.__rs.new_move()
+        tsX, tsY, tsH = self.__sm.state_to_pose(self.__trueState)
         
-        self.__sense = self.__rs.get_sensor_reading(self.__trueState)
+        self.__sense = self.__rs.read_sensor(tsX, tsY)
+        print("self sense", self.__sense)
 
-        self.__probs = self.__HMM.forward_filter(self.__probs, self.__sens)
+        self.__probs, self.__estimate = self.__HMM.forward_filter(self.__sense, self.__probs)
         
         # this block can be kept as is
         ret = False  # in case the sensor reading is "nothing" this is kept...
@@ -98,11 +100,10 @@ class Localizer:
         srX = -1
         srY = -1
         if self.__sense != None:
-            srX, srY = self.__sm.reading_to_position(self.__sense)
+            srX, srY = self.__sm.reading_to_position(self.__sense) # self.__sense #self.__sm.reading_to_position(    )
             ret = True
         
-        self.__estimate = self.__sm.state_to_position(self.__probs)
-        eX, eY = self.__estimate # -- behöver uppdateras på något smart sätt
+        eX, eY = self.__estimate
         
         # this should be updated to spit out the actual error for this step
         # error = 10.0  
