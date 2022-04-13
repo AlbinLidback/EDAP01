@@ -27,7 +27,7 @@ class RobotSim:
         
         
     # new move
-    def new_move(self) -> int:
+    def new_move(self):
         x, y, h = self.sm.state_to_pose(self.state)
         av_headings = self.av_headings(x, y)
 
@@ -53,12 +53,12 @@ class RobotSim:
 
         if x > 0:
             av_headings.append(0)
-        if y > 0:
-            av_headings.append(3)
-        if x < self.rows - 1:
-            av_headings.append(2)
         if y < self.cols - 1:
             av_headings.append(1)
+        if x < self.rows - 1:
+            av_headings.append(2)
+        if y > 0:
+            av_headings.append(3)
         
         return av_headings
    
@@ -86,6 +86,7 @@ class RobotSim:
         true_prob = 0.1
         layer_1_prob = len(layer_1) * 0.05
         layer_2_prob = len(layer_2) * 0.025
+        print(true_prob, layer_1_prob, layer_2_prob)
 
         if prob <= true_prob:
             return self.sm.state_to_position(self.state)
@@ -109,14 +110,12 @@ class HMMFilter:
     
     def forward_filter(self, sens, probs):
         sensReading = None
-        if sens:
+        if sens != None:
             sensReading = self.sm.position_to_reading(sens[0], sens[1])
 
         t_t = self.tm.get_T_transp()
         o = self.om.get_o_reading(sensReading)
         f = o @ t_t @ probs
-        
-        #f = np.norm(f)
-        f = (1.0 / sum(f) ) * f
-        print("Max:", max(f))
+        #f = np.linalg.norm(f)
+        f = (1 / np.linalg.norm(f) ) * f
         return f
